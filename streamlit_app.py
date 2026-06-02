@@ -1,4 +1,4 @@
-import altair as alt
+import sys
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -6,10 +6,6 @@ import plotly.graph_objects as go
 import json
 import os
 from typing import Optional
-import folium
-from folium.plugins import MarkerCluster, HeatMap
-from streamlit_folium import st_folium
-import branca.colormap as cm
 import database
 from streamlit_additions import (
     render_tab_projection,
@@ -29,10 +25,20 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 filterable_values = True
 
 if not os.path.exists(os.path.join(BASE_DIR, "bornes.db")):
+    import subprocess
     os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
     script = os.path.join(BASE_DIR, "bornes_arrondissements.py")
     if os.path.exists(script):
-        exec(open(script).read())
+        with st.spinner("Initialisation de la base de données (première utilisation)..."):
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True
+            )
+        if result.returncode != 0:
+            st.error("Erreur lors de l'initialisation des données.")
+            st.code(result.stderr, language="text")
+            st.stop()
+        st.rerun()
 
 
 @st.cache_data(ttl=300)
@@ -119,6 +125,8 @@ if bornes is None or bornes.empty:
 bornes["num_arrondissement"] = pd.to_numeric(bornes["num_arrondissement"], errors="coerce")
 bornes = bornes.dropna(subset=["num_arrondissement"])
 bornes["num_arrondissement"] = bornes["num_arrondissement"].astype(int)
+if "puissance_nominale" not in bornes.columns:
+    bornes["puissance_nominale"] = None
 bornes["puissance_nominale"] = pd.to_numeric(bornes["puissance_nominale"], errors="coerce")
 
 bornes["statut_actuel"] = bornes["statut_actuel"].replace({
@@ -168,7 +176,7 @@ with st.sidebar:
             with st.spinner("Mise à jour des statuts en cours..."):
                 from etl import recuperer_statuts_pdc_belib
 
-                statuts = recuperer_statuts_pdc_belib(True)
+                statuts = recuperer_statuts_pdc_belib()
 
                 if statuts is not None and not statuts.empty:
                     statuts["snapshot_at"] = pd.to_datetime(statuts["snapshot_at"])
@@ -195,7 +203,7 @@ st.markdown("# ⚡ Bornes de recharge VE — Paris")
 st.markdown("*Outil de priorisation pour l'installation de nouvelles bornes de recharge à Paris*")
 
 df_filtre = bornes[bornes["num_arrondissement"].isin(arr_selectionnes)]
-nb_stations = df_filtre["id_station_itinerance"].nunique()
+nb_stations = df_filtre["id_station_itinerance"].nunique() if "id_station_itinerance" in df_filtre.columns else len(df_filtre)
 nb_pdc = len(df_filtre)
 nb_disponibles = (df_filtre["statut_actuel"] == "Disponible").sum()
 puissance_moy = df_filtre["puissance_nominale"].mean()
@@ -500,14 +508,6 @@ with tab_energie:
 with tab_population:
     if population is None or population.empty:
         st.info("Données démographiques non disponibles.")
-        from etl import lecture_s3, S3_BUCKET
-        st.caption(f"S3_BUCKET configuré : `{S3_BUCKET or '(vide)'}`")
-        df_debug = lecture_s3("paris_population")
-        if df_debug is None:
-            st.error("❌ `raw/data/paris_population.csv` introuvable sur S3")
-        else:
-            st.success(f"✅ Fichier trouvé sur S3 ({len(df_debug)} lignes) — problème ailleurs")
-            st.dataframe(df_debug.head(3))
     else:
         df_pop = population.copy()
         df_pop["num_arrondissement"] = pd.to_numeric(df_pop["num_arrondissement"], errors="coerce")

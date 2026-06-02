@@ -37,7 +37,6 @@ class Borne(Base):
             nom_station=row.get("nom_station"),
             nom_amenageur=row.get("nom_amenageur"),
             nom_operateur=row.get("nom_operateur"),
-            nbre_pdc=int(row["nbre_pdc"]) if pd.notna(row.get("nbre_pdc")) else None,
             puissance_nominale=float(row["puissance_nominale"]) if pd.notna(row.get("puissance_nominale")) else None,
             latitude=float(row["latitude"]) if pd.notna(row.get("latitude")) else None,
             longitude=float(row["longitude"]) if pd.notna(row.get("longitude")) else None,

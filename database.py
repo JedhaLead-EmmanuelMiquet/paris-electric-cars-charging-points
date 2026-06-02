@@ -1,9 +1,11 @@
+import os
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base, Borne, ParcVehiculesElectriques, Pression, Energie, Population
 
-DB_PATH = "./bornes.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "bornes.db"))
 
 def get_engine():
     """Connexion à la base de données"""

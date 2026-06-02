@@ -1,6 +1,6 @@
-# Project Title
+# Paris Electric Cars Charging Points
 
-Short description (1–2 sentences).
+Jedha Data Science Lead's Bootcamp Final Project
 
 ## Purpose
 
@@ -12,24 +12,36 @@ What this project explores or demonstrates.
 ```
 
 ---
-title: Paris Bornes
-emoji: 🚀
-colorFrom: red
-colorTo: red
+title: Bornes VE Paris
+emoji: ⚡
+colorFrom: green
+colorTo: blue
 sdk: docker
 app_port: 8501
 tags:
-- streamlit
+  - streamlit
+  - data-visualization
+  - electric-vehicles
+  - paris
 pinned: false
-short_description: Prioriser les zones d'installation des bornes de recharge
+short_description: Bornes de recharge VE à Paris
 ---
 
-# Welcome to Streamlit!
+# ⚡ Bornes de recharge VE — Paris
 
-Edit `/src/streamlit_app.py` to customize this app to your heart's desire. :heart:
+Tableau de bord interactif pour analyser et prioriser l'installation de bornes de recharge pour véhicules électriques à Paris.
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+## Secrets requis (HF Spaces → Settings → Variables and secrets)
 
-# paris-electric-cars-charging-points
-Jedha Data Science Lead's Bootcamp Final Project
+| Nom | Description |
+|-----|-------------|
+| `ALH_EMAIL` | Email Airflow (ac.mbepa@gmail.com) |
+| `ALH_PASSWORD` | Mot de passe Airflow |
+| `S3_BUCKET` | Nom du bucket AWS S3 (optionnel) |
+| `AWS_REGION` | Région AWS (ex: eu-north-1) |
+| `AWS_ACCESS_KEY_ID` | Clé d'accès AWS (si S3 utilisé) |
+| `AWS_SECRET_ACCESS_KEY` | Clé secrète AWS (si S3 utilisé) |
+
+## Fonctionnement
+
+Au démarrage du conteneur, le script ETL (`bornes_arrondissements.py`) récupère automatiquement les données depuis l'API Airflow et les APIs publiques (Enedis, Agence ORE), puis initialise la base SQLite locale avant de lancer Streamlit.
