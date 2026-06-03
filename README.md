@@ -1,16 +1,3 @@
-# Paris Electric Cars Charging Points
-
-Jedha Data Science Lead's Bootcamp Final Project
-
-## Purpose
-
-What this project explores or demonstrates.
-
-## Setup
-
-```bash
-```
-
 ---
 title: Bornes VE Paris
 emoji: ⚡
@@ -27,11 +14,17 @@ pinned: false
 short_description: Bornes de recharge VE à Paris
 ---
 
-# ⚡ Bornes de recharge VE — Paris
+# ⚡ Paris Electric Cars Charging Points
+
+Jedha Data Science Lead's Bootcamp Final Project
+
+## Purpose
 
 Tableau de bord interactif pour analyser et prioriser l'installation de bornes de recharge pour véhicules électriques à Paris.
 
-## Secrets requis (HF Spaces → Settings → Variables and secrets)
+## Setup
+
+### Secrets (HF Spaces → Settings → Variables and secrets)
 
 | Nom | Description |
 |-----|-------------|
@@ -42,6 +35,6 @@ Tableau de bord interactif pour analyser et prioriser l'installation de bornes d
 | `AWS_ACCESS_KEY_ID` | Clé d'accès AWS (si S3 utilisé) |
 | `AWS_SECRET_ACCESS_KEY` | Clé secrète AWS (si S3 utilisé) |
 
-## Fonctionnement
+### Fonctionnement
 
 Au démarrage du conteneur, le script ETL (`bornes_arrondissements.py`) récupère automatiquement les données depuis l'API Airflow et les APIs publiques (Enedis, Agence ORE), puis initialise la base SQLite locale avant de lancer Streamlit.
