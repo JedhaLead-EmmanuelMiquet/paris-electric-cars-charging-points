@@ -1,0 +1,152 @@
+ Schéma d'architecture complet — Local → Docker → Hugging Face
+
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║                        POSTE LOCAL (Windows 11)                             ║
+  ║  D:\DATA1\320_projet\streamlit_projet\                                      ║
+  ║                                                                             ║
+  ║  ┌─────────────────────────────────────────────────────────────────────┐   ║
+  ║  │  Repo Git (branch: main)                                            │   ║
+  ║  │                                                                     │   ║
+  ║  │  streamlit_app.py          ← point d'entrée Streamlit               │   ║
+  ║  │  streamlit_additions.py    ← 3 onglets projection / scénarios       │   ║
+  ║  │  etl.py                    ← accès APIs, harmonisation              │   ║
+  ║  │  bornes_arrondissements.py ← script init + calculs + upload S3      │   ║
+  ║  │  database.py               ← CRUD SQLite (SQLAlchemy)               │   ║
+  ║  │  models.py                 ← ORM : 5 tables                         │   ║
+  ║  │  arrondissements.geojson   ← contours 20 arrondissements            │   ║
+  ║  │  requirements.txt                                                   │   ║
+  ║  │  Dockerfile                                                         │   ║
+  ║  │                                                                     │   ║
+  ║  │  data/                     ← CSV intermédiaires (ignorés par Git)   │   ║
+  ║  │  bornes.db                 ← SQLite (ignoré par Git)                │   ║
+  ║  └─────────────────────────────────────────────────────────────────────┘   ║
+  ║                │                                                            ║
+  ║         git push / HF push                                                  ║
+  ╚══════════════════╪══════════════════════════════════════════════════════════╝
+                     │
+                     ▼
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║               HUGGING FACE HUB  (Space — Docker SDK)                       ║
+  ║                                                                             ║
+  ║  ┌─────────────────────────────────────────────────────────────────────┐   ║
+  ║  │  Build Docker Image  (déclenché par push)                           │   ║
+  ║  │                                                                     │   ║
+  ║  │  FROM python:3.11-slim                                              │   ║
+  ║  │                                                                     │   ║
+  ║  │  apt-get install build-essential curl git                           │   ║
+  ║  │                                                                     │   ║
+  ║  │  WORKDIR /home/app/                                                 │   ║
+  ║  │  COPY . .         ← tout le repo est copié                          │   ║
+  ║  │  pip install -r requirements.txt                                    │   ║
+  ║  │                                                                     │   ║
+  ║  │  EXPOSE 8501                                                        │   ║
+  ║  │  ENTRYPOINT streamlit run streamlit_app.py                          │   ║
+  ║  │             --server.port=8501 --server.address=0.0.0.0             │   ║
+  ║  └─────────────────────────────────────────────────────────────────────┘   ║
+  ║                │                                                            ║
+  ║         Image construite & lancée                                           ║
+  ║                │                                                            ║
+  ║  ┌─────────────▼───────────────────────────────────────────────────────┐   ║
+  ║  │  CONTENEUR EN COURS D'EXÉCUTION                                     │   ║
+  ║  │                                                                     │   ║
+  ║  │  /home/app/                                                         │   ║
+  ║  │  ├── streamlit_app.py                                               │   ║
+  ║  │  ├── streamlit_additions.py                                         │   ║
+  ║  │  ├── etl.py                                                         │   ║
+  ║  │  ├── bornes_arrondissements.py                                      │   ║
+  ║  │  ├── database.py                                                    │   ║
+  ║  │  ├── models.py                                                      │   ║
+  ║  │  ├── arrondissements.geojson                                        │   ║
+  ║  │  ├── requirements.txt                                               │   ║
+  ║  │  ├── Dockerfile                                                     │   ║
+  ║  │  ├── data/                  ← créé à l'init (éphémère)              │   ║
+  ║  │  │   ├── stations_paris.csv                                         │   ║
+  ║  │  │   ├── energie_by_arrdt.csv                                       │   ║
+  ║  │  │   └── soutenabilite_scenarios.csv                                │   ║
+  ║  │  └── bornes.db              ← SQLite (créé à l'init, éphémère)      │   ║
+  ║  │                                                                     │   ║
+  ║  │  ┌───────────────────────────────────────────────────────────────┐  │   ║
+  ║  │  │  FLUX D'INITIALISATION (1× au 1er démarrage)                 │  │   ║
+  ║  │  │                                                               │  │   ║
+  ║  │  │  streamlit_app.py détecte : bornes.db absent                  │  │   ║
+  ║  │  │       │                                                        │  │   ║
+  ║  │  │       ▼  exec()                                               │  │   ║
+  ║  │  │  bornes_arrondissements.py                                     │  │   ║
+  ║  │  │       ├── etl.api_belib()        → Paris Open Data API        │  │   ║
+  ║  │  │       ├── etl.api_irve_*()       → data.gouv.fr API           │  │   ║
+  ║  │  │       ├── etl.recuperer_ve()     → Agence ORE API             │  │   ║
+  ║  │  │       ├── etl.recuperer_pop()    → INSEE / data.gouv.fr       │  │   ║
+  ║  │  │       ├── etl.enedis_paris()     → Enedis Open Data           │  │   ║
+  ║  │  │       ├── calculer_pression()                                  │  │   ║
+  ║  │  │       ├── calculer_projections() → CSV data/                  │  │   ║
+  ║  │  │       ├── database.sauvegarder_*() → bornes.db                │  │   ║
+  ║  │  │       └── boto3.upload → S3 (si S3_BUCKET défini)             │  │   ║
+  ║  │  └───────────────────────────────────────────────────────────────┘  │   ║
+  ║  │                                                                     │   ║
+  ║  │  ┌───────────────────────────────────────────────────────────────┐  │   ║
+  ║  │  │  RUNTIME STREAMLIT (port 8501)                                │  │   ║
+  ║  │  │                                                               │  │   ║
+  ║  │  │  charger_donnees() [cache 5 min]                              │  │   ║
+  ║  │  │    └── SQL → bornes.db                                        │  │   ║
+  ║  │  │  charger_geojson() [cache 1 h]                                │  │   ║
+  ║  │  │    └── lecture arrondissements.geojson                        │  │   ║
+  ║  │  │                                                               │  │   ║
+  ║  │  │  Sidebar ──► filtres arrondissements                          │  │   ║
+  ║  │  │           └─► bouton Rafraîchir → etl.api_belib() (live)      │  │   ║
+  ║  │  │                                                               │  │   ║
+  ║  │  │  7 onglets Plotly / Folium                                    │  │   ║
+  ║  │  └───────────────────────────────────────────────────────────────┘  │   ║
+  ║  └─────────────────────────────────────────────────────────────────────┘   ║
+  ║               │                                                            ║
+  ║         HF reverse proxy                                                   ║
+  ║               │                                                            ║
+  ║         HTTPS publique  ──► Navigateur utilisateur                         ║
+  ╚══════════════════════════════════════════════════════════════════════════════╝
+                     │  (optionnel)
+                     ▼
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║               AWS S3  (si S3_BUCKET configuré en secret HF)                ║
+  ║                                                                             ║
+  ║  s3://<bucket>/raw/data/bornes.csv                                         ║
+  ║  s3://<bucket>/raw/data/pression.csv                                       ║
+  ║  s3://<bucket>/raw/data/vehicules.csv                                      ║
+  ║  s3://<bucket>/raw/data/energie.csv                                         ║
+  ╚══════════════════════════════════════════════════════════════════════════════╝
+
+  ---
+  Points critiques à retenir
+
+  Ce que le COPY . . embarque dans l'image
+
+  Tout le repo local est copié dans /home/app/, sauf ce que le .dockerignore exclut (s'il existe). À vérifier : bornes.db et data/ ne doivent pas être commités/copiés — ils sont recréés à l'init.
+
+  Persistance éphémère
+
+  Sur Hugging Face, le système de fichiers du conteneur est volatile : à chaque redémarrage, bornes.db et data/ sont recréés depuis les APIs. Si les APIs externes sont lentes ou indisponibles, l'app échoue au
+  démarrage.
+
+  Variables d'environnement (Secrets HF)
+
+  ┌──────────────────────────┬──────────────────────────────────────┐
+  │         Variable         │                Usage                 │
+  ├──────────────────────────┼──────────────────────────────────────┤
+  │ S3_BUCKET                │ Active l'upload S3 après init        │
+  ├──────────────────────────┼──────────────────────────────────────┤
+  │ AWS_REGION               │ Région du bucket (défaut eu-north-1) │
+  ├──────────────────────────┼──────────────────────────────────────┤
+  │ ALH_EMAIL / ALH_PASSWORD │ Accès optionnel à l'API Airflow      │
+  └──────────────────────────┴──────────────────────────────────────┘
+
+  Flux réseau sortant depuis le conteneur
+
+  Conteneur HF  →  opendata.paris.fr     (Belib)
+                →  www.data.gouv.fr      (IRVE + INSEE)
+                →  opendata.agenceore.fr (VE)
+                →  opendata.enedis.fr    (Energie)
+                →  s3.amazonaws.com      (optionnel)
+                →  alh-consulting.com    (optionnel Airflow)
+
+✻ Brewed for 51s
+
+※ recap: The app is a Streamlit dashboard visualizing EV charging stations across Paris arrondissements. Architecture diagram is complete. Next: address any specific improvements or deployment issues the user
+  wants to tackle. (disable recaps in /config)
